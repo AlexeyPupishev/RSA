@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 class Program
 {
-    static BigInteger ExtEvc(BigInteger a, BigInteger b, out BigInteger x, out BigInteger y)
+    static long ExtEvc(long a, long b, out long x, out long y)
     {
         if (a == 0)
         {
@@ -13,17 +13,17 @@ class Program
             y = 1;
             return b;
         }
-        BigInteger x1, y1;
-        BigInteger d = ExtEvc(b % a, a, out x1, out y1);
+        long x1, y1;
+        long d = ExtEvc(b % a, a, out x1, out y1);
         x = y1 - (b / a) * x1;
         y = x1;
         return d;
     }
 
-    static BigInteger Inverse(BigInteger a, BigInteger m)
+    static long Inverse(long a, long m)
     {
-        BigInteger x, y;
-        BigInteger g = ExtEvc(a, m, out x, out y);
+        long x, y;
+        long g = ExtEvc(a, m, out x, out y);
         if (g != 1)
         {
             Console.WriteLine("Err: ");
@@ -31,7 +31,7 @@ class Program
         }
         else
         {
-            BigInteger res = (x % m + m) % m;
+            long res = (x % m + m) % m;
             return res;
         }
     }
@@ -49,9 +49,9 @@ class Program
         }
     }
 
-    static BigInteger Power(BigInteger x, BigInteger y, BigInteger p)
+    static long Power(long x, long y, long p)
     {
-        BigInteger res = 1;
+        long res = 1;
         x = x % p;
 
         while (y > 0)
@@ -66,10 +66,10 @@ class Program
         return res;
     }
 
-    static bool Witness(BigInteger a, BigInteger n)
+    static bool Witness(long a, long n)
     {
-        BigInteger r = 0;
-        BigInteger d = n - 1;
+        long r = 0;
+        long d = n - 1;
 
         while (d % 2 == 0)
         {
@@ -77,7 +77,7 @@ class Program
             d >>= 1;
         }
 
-        BigInteger x = Power(a, d, n);
+        long x = Power(a, d, n);
         if (x == 1 || x == n - 1)
         {
             return false;
@@ -95,7 +95,7 @@ class Program
         return true;
     }
 
-    static bool MillerRabinTest(BigInteger n, int k)
+    static bool MillerRabinTest(long n, int k)
     {
         if (n <= 1 || n == 4)
         {
@@ -109,7 +109,7 @@ class Program
         Random rand = new Random();
         for (int i = 0; i < k; i++)
         {
-            BigInteger a = 2 + rand.Next() % (int)(n - 4);
+            long a = 2 + rand.Next() % (int)(n - 4);
             if (Witness(a, n))
             {
                 return false;
@@ -119,13 +119,13 @@ class Program
         return true;
     }
 
-    static BigInteger GeneratePrime(BigInteger min, BigInteger max, int k)
+    static long GeneratePrime(long min, long max, int k)
     {
         Random rand = new Random();
-        BigInteger prime = 0;
+        long prime = 0;
         while (true)
         {
-            BigInteger num = min + rand.Next() % (max - min + 1);
+            long num = min + rand.Next() % (max - min + 1);
             if (MillerRabinTest(num, k))
             {
                 prime = num;
@@ -134,3 +134,115 @@ class Program
         }
         return prime;
     }
+
+    public long GeneratePublicKey(long min, long max)
+    {
+        int s = (int)Math.Log2(100000);
+
+        long p = GeneratePrime(min, max, s);
+        long q = GeneratePrime(min + 1, max - 1, s);
+        Console.WriteLine($"p = {p}; q = {q}");
+
+        long n = p * q;
+
+        Console.WriteLine($"n = {n}");
+
+        long eulerFunc = (p - 1) * (q - 1);
+
+        Console.WriteLine($"euler_func = {eulerFunc}");
+
+        long e = 691;
+        while (Evc(e, eulerFunc) != 1 && e % 2 != 0)
+        {
+            e++;
+        }
+
+        Console.WriteLine($"e = {e}");
+
+        return e;
+    }
+
+    public long GeneratePrivateKey(long e, long min, long max)
+    {
+        int s = (int)Math.Log2(100000);
+
+        long p = GeneratePrime(min, max, s);
+        long q = GeneratePrime(min + 1, max - 1, s);
+
+        long eulerFunc = (p - 1) * (q - 1);
+
+        // Закрытый ключ d
+        long d = Inverse(e, eulerFunc);
+        while (d < 0)
+        {
+            d += eulerFunc;
+        }
+
+        Console.WriteLine($"d: {d}");
+
+        return d;
+    }
+
+    public void EncryptTxtFile(long e, long n)
+    {
+        string inputPath = "if.txt";
+        string outputPath = "of.txt";
+
+        if (!File.Exists(inputPath))
+        {
+            Console.WriteLine("Ошибка открытия файла!");
+            return;
+        }
+
+        var nums = new List<long>();
+        foreach (char ch in File.ReadAllText(inputPath))
+        {
+            nums.Add((long)ch);
+        }
+
+        for (int i = 0; i < nums.Count; i++)
+        {
+            nums[i] = Power(nums[i], e, n);
+        }
+
+        using (var writer = new StreamWriter(outputPath))
+        {
+            foreach (long num in nums)
+            {
+                writer.Write(num + " ");
+            }
+        }
+    }
+
+    public void EncryptBinFile(long e, long n)
+    {
+        string inputPath = "if.bin";
+        string outputPath = "of.bin";
+
+        if (!File.Exists(inputPath))
+        {
+            Console.WriteLine("Ошибка открытия файла!");
+            return;
+        }
+
+        var nums = new List<long>();
+        foreach (byte b in File.ReadAllBytes(inputPath))
+        {
+            nums.Add((long)b);
+        }
+
+        for (int i = 0; i < nums.Count; i++)
+        {
+            nums[i] = Power(nums[i], e, n);
+        }
+
+        using (var writer = new BinaryWriter(File.Open(outputPath, FileMode.Create)))
+        {
+            foreach (long num in nums)
+            {
+                writer.Write(num);
+            }
+        }
+    }
+
+}
